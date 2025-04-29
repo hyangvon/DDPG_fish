@@ -1,0 +1,37 @@
+PROGRAM MAIN
+VAR
+    fbTcpClient : FB_SocketClient;
+    bConnect : BOOL := TRUE;
+    bConnected : BOOL;
+    bSend : BOOL;
+    bReceive : BOOL;
+    arrState : ARRAY [1..6] OF REAL; // 假设传感器数据类型为 REAL
+    arrAction : ARRAY [1..2] OF REAL; // 假设动作数据类型为 REAL
+    nBytesReceived : UDINT;
+END_VAR
+
+// 配置服务器地址和端口
+fbTcpClient.sAddr := '192.168.1.100'; // Python 服务器所在的 IP 地址
+fbTcpClient.nPort := 65432;           // 服务器端口号
+
+IF bConnect THEN
+    fbTcpClient.Connect();
+    bConnect := FALSE;
+END_IF
+
+fbTcpClient( xEnable := TRUE, xConnect := TRUE, xConnected => bConnected, xBusy => , xError => , xErrorId => );
+
+IF bConnected THEN
+    // 将传感器数据打包成字节数组
+    bSend := TRUE;
+    fbTcpClient.Send(pSendData := ADR(arrState), cbSendData := SIZEOF(arrState), xDone => , xBusy => , xError => , xErrorId => );
+    
+    // 接收从 Python 程序返回的动作数据
+    bReceive := TRUE;
+    fbTcpClient.Receive(pRecvData := ADR(arrAction), cbRecvData := SIZEOF(arrAction), cbRecvSize := nBytesReceived, xDone => , xBusy => , xError => , xErrorId => );
+    
+    IF nBytesReceived > 0 THEN
+        // 在此应用接收到的 PID 参数控制电机
+        // 例如：ControlMotor(arrAction[1], arrAction[2]);
+    END_IF
+END_IF
