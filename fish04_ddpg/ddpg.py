@@ -87,7 +87,7 @@ class DDPG(object):
 
     def store_transition(self, s, a, r, s_):
         transition = np.hstack((s, a, [r], s_))
-        my_file = open('train.txt', 'a')
+        my_file = open('./learn/train.txt', 'a')
         store = ','.join(str(i) for i in transition)
         my_file.write(store + '\n')
         my_file.close()
@@ -122,11 +122,11 @@ class DDPG(object):
 
     def save(self):
         saver = tf.compat.v1.train.Saver()
-        saver.save(self.sess, './params', write_meta_graph=False)
+        saver.save(self.sess, './learn/params', write_meta_graph=False)
 
     def restore(self):
         saver = tf.compat.v1.train.Saver()
-        saver.restore(self.sess, './params')
+        saver.restore(self.sess, './learn/params')
 
     def gotq(self, s, a):
         s = s[np.newaxis, :]
