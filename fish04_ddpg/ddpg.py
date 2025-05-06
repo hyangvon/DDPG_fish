@@ -62,7 +62,7 @@ class DDPG(object):
 
     def choose_action(self, s):
         action = self.sess.run(self.a, {self.S: s[None, :]})[0]
-        action[0] = np.clip(np.random.normal(action[0], self.var1), 1, 21)
+        action[0] = np.clip(np.random.normal(action[0], self.var1), 11, 31)
         action[1] = np.clip(np.random.normal(action[1], self.var2), 39, 61)
         return action
     
@@ -87,7 +87,7 @@ class DDPG(object):
 
     def store_transition(self, s, a, r, s_):
         transition = np.hstack((s, a, [r], s_))
-        my_file = open('./learn/train.txt', 'a')
+        my_file = open('./fish04_ddpg/learn/train.txt', 'a')
         store = ','.join(str(i) for i in transition)
         my_file.write(store + '\n')
         my_file.close()
@@ -122,11 +122,11 @@ class DDPG(object):
 
     def save(self):
         saver = tf.compat.v1.train.Saver()
-        saver.save(self.sess, './learn/params', write_meta_graph=False)
+        saver.save(self.sess, './fish04_ddpg/learn/params', write_meta_graph=False)
 
     def restore(self):
         saver = tf.compat.v1.train.Saver()
-        saver.restore(self.sess, './learn/params')
+        saver.restore(self.sess, './fish04_ddpg/learn/params')
 
     def gotq(self, s, a):
         s = s[np.newaxis, :]

@@ -38,7 +38,8 @@ class FishEnv(object):
     def __init__(self):
         ####################  运动学变量定义  ####################
         self.pi = 3.14159265358
-        self.PHI = 1.34                                     # 第一关节第二关节相位差
+        # self.PHI = 1.34                                  # 第一、二关节相位差
+        self.PHI = self.pi + 0.79                                  # 第一、二关节相位差
         self.f = 1                                          # 关节摆动频率
 
         self.theta_10f = 0.1179                             # 第一关节相对于头部的转动角度幅值
@@ -56,7 +57,7 @@ class FishEnv(object):
         self.X_0 = 0
         self.theta_10 = 0                                   # 第一关节转动角度
         self.theta_21 = self.theta_21f * np.sin(self.PHI)   # 第二关节相对于第一关节转动角度
-        self.theta_20 = self.theta_21f * np.sin(self.PHI)   # 第二关节转动角度
+        self.theta_20 = self.theta_10 + self.theta_21f * np.sin(self.PHI)   # 第二关节转动角度
 
         ## 前进速度、两关节角速度
         self.X_0_1o = 0                                     # 前进速度
@@ -318,9 +319,12 @@ class FishEnv(object):
         self.F_0_v = np.array([self.F_0, 0])[np.newaxis, :]
 
         # 非保守力的求解
-        self.Q_1 = np.dot(self.F_2_v, np.array([[-self.L_1 * np.sin(self.theta_10) - self.L_d2 * np.sin(self.theta_20)], [self.L_1 * np.cos(self.theta_10) + self.L_d2 * np.cos(self.theta_20)]]))[0, 0] + self.M_1
+        # self.Q_1 = np.dot(self.F_2_v, np.array([[-self.L_1 * np.sin(self.theta_10) - self.L_d2 * np.sin(self.theta_20)], [self.L_1 * np.cos(self.theta_10) + self.L_d2 * np.cos(self.theta_20)]]))[0, 0] + self.M_1
+        # self.Q_2 = np.dot(self.F_2_v, np.array([[-self.L_d2 * np.sin(self.theta_20)], [self.L_d2 * np.cos(self.theta_20)]]))[0, 0] + self.M_2
+        # self.Q_3 = np.dot(self.F_0_v, np.array([[1], [0]]))[0, 0] + np.dot(self.F_2_v, np.array([[1], [0]]))[0, 0]
+        self.Q_1 = np.dot(self.F_1_v, np.array([[-self.L_d1 * np.sin(self.theta_10)], [self.L_d1 * np.cos(self.theta_10)]]))[0, 0] + np.dot(self.F_2_v, np.array([[-self.L_1 * np.sin(self.theta_10) - self.L_d2 * np.sin(self.theta_20)], [self.L_1 * np.cos(self.theta_10) + self.L_d2 * np.cos(self.theta_20)]]))[0, 0] + self.M_1
         self.Q_2 = np.dot(self.F_2_v, np.array([[-self.L_d2 * np.sin(self.theta_20)], [self.L_d2 * np.cos(self.theta_20)]]))[0, 0] + self.M_2
-        self.Q_3 = np.dot(self.F_0_v, np.array([[1], [0]]))[0, 0] + np.dot(self.F_2_v, np.array([[1], [0]]))[0, 0]
+        self.Q_3 = np.dot(self.F_0_v, np.array([[1], [0]]))[0, 0] + np.dot(self.F_1_v, np.array([[1], [0]]))[0, 0] + np.dot(self.F_2_v, np.array([[1], [0]]))[0, 0]
 
         # 拉格朗日方程逆解求广义加速度
         g_acc = np.dot(np.linalg.inv(self.DD_1), (np.array([[self.Q_1], [self.Q_2], [self.Q_3]]) - np.dot(self.DD_2, np.array([[self.theta_10_1o ** 2], [self.theta_21_1o ** 2]])) - self.DD_3 * (self.theta_10_1o * self.theta_21_1o)))
@@ -338,7 +342,8 @@ class FishEnv(object):
         self.theta_21_1o += self.theta_21_2o * self.dt      # 第二关节相对角速度
         self.theta_20_1o = self.theta_10_1o + self.theta_21_1o  # 第二关节角速度
         self.X_0_1o += self.X_0_2o * self.dt                # 前进速度
-        self.U = self.X_0_1o
+        # self.U = self.X_0_1o
+        self.U = 7 * self.X_0_1o        # 为什么*7
         self.theta_10_1o_t.append(self.theta_10_1o)     # 记录
         self.theta_21_1o_t.append(self.theta_21_1o)
         self.theta_20_1o_t.append(self.theta_20_1o)
@@ -347,8 +352,8 @@ class FishEnv(object):
         # 两关节角度、前进位移
         self.theta_10 += self.theta_10_1o * self.dt
         self.theta_21 += self.theta_21_1o * self.dt
-        self.theta_10 = np.clip(self.theta_10, -self.theta_10f, self.theta_10f)  # numpy.clip(a, a_min, a_max, out=None)[source],
-        self.theta_21 = np.clip(self.theta_21, -self.theta_21f, self.theta_21f)  # clip这个函数将将数组中的元素限制在a_min, a_max之间
+        # self.theta_10 = np.clip(self.theta_10, -self.theta_10f, self.theta_10f)  # numpy.clip(a, a_min, a_max, out=None)[source],
+        # self.theta_21 = np.clip(self.theta_21, -self.theta_21f, self.theta_21f)  # clip这个函数将将数组中的元素限制在a_min, a_max之间
         self.theta_20 = self.theta_10 + self.theta_21
         self.X_0 += self.X_0_1o * self.dt
         self.theta_10_t.append(self.theta_10)   # 记录
@@ -359,13 +364,21 @@ class FishEnv(object):
 
         # 每隔一段时间积分计算有用功
         if (self.counter % 100) == 1:
-            self.W_useful = 0
-            self.W_total = 0
-            self.total_eta = 0
+            self.W_useful_per_period = 0
+            self.W_total_per_period = 0
+            self.total_eta_per_period = 0
+        self.W_total_per_period = self.W_total_per_period + (self.P_1 + self.P_2) * self.dt
+        self.W_useful_per_period = self.W_useful_per_period + self.P_useful * self.dt
+
         self.W_total = self.W_total + (self.P_1 + self.P_2) * self.dt
         self.W_useful = self.W_useful + self.P_useful * self.dt
 
         # 计算效率
+        if self.W_total_per_period == 0:
+            self.total_eta_per_period = 0
+        else:
+            self.total_eta_per_period = self.W_useful_per_period / self.W_total_per_period
+
         if self.W_total == 0:
             self.total_eta = 0
         else:
@@ -379,18 +392,21 @@ class FishEnv(object):
         # my_file.close()
 
         ####################  RL相关变量选取  ####################
-        r = self.total_eta      # 效率作为的奖励值
+        r = self.total_eta_per_period      # 效率作为的奖励值
         self.fish_info['r'] = [self.theta_10, self.theta_21, self.theta_10_1o, self.theta_21_1o, self.theta_10_2o, self.theta_21_2o]
         s = self.fish_info['r'] # 运动变量作为状态
 
-        if self.total_eta > 0.5:
-            self.goal += 1
-            if self.goal > 20:
-                self.on_goal += 1
-                done = True
-                self.goal = 0
-        else:
-            self.goal = 0
+        # if self.total_eta_per_period > 0.5:
+        #     self.goal += 1
+        #     if self.goal > 20:
+        #         self.on_goal += 1
+        #         done = True
+        #         self.goal = 0
+        # else:
+        #     self.goal = 0
+
+        print(f"cnt: {self.counter:d} | P_useful: {self.F_1x + self.F_2x:.3f} * {self.U:.3f}, W_useful: {self.W_useful:.3f}, P1: {self.P_1:.3f}, P2: {self.P_2:.3f}, P_total: {self.P_1 + self.P_2:.3f}, W_total: {self.W_total:.3f}, eta: {self.total_eta:.3f}")
+
         return s, r, done, self.M_1, self.M_2
 
         ####################  绘制图像  ####################

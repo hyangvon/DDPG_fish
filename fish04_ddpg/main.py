@@ -27,8 +27,16 @@ font_1 = {
 
 ####################    ####################
 MAX_EPISODES = 100 #原来100
-MAX_EP_STEPS = 200
+MAX_EP_STEPS = 100
+EVAL_EPISODE = 10000
+KP_1 = 20
+KP_2 = 50
+
 ON_TRAIN = True
+# ON_TRAIN = False
+
+ON_DDPG = True
+# ON_DDPG = False
 
 env = FishEnv()     # set env
 s_dim = env.state_dim
@@ -142,20 +150,116 @@ def train():
 
 ####################  重置与刷新  ####################
 def eval():
+    total_eta_t = []                            # 推进效率
+    kp1_array = []
+    kp2_array = []
     rl.restore()
+
     env.render()
     env.viewer.set_vsync(True)
+    
     # while True:
     s = env.reset()
-    ep_r=0
-    for _ in range(1000):
+    ep_r = 0
+    cnt_eval = 0
+    for _ in range(EVAL_EPISODE):
         env.render()
-        a = rl.choose_action(s)
+        cnt_eval += 1
+        a = rl.choose_action1(s) if ON_DDPG else [KP_1, KP_2]
+        
+        kp1_array.append(a[0])
+        kp2_array.append(a[1])
+
         s, r, done, m1, m2 = env.step(a)
         ep_r=r
-        if done:
-            break
-        print(ep_r)
+
+        total_eta_t.append(100*ep_r)
+
+        # if done:
+        #     break
+        print(f'[EVAL {cnt_eval/EVAL_EPISODE*100:.2f}%] eta: {ep_r:.4f}')
+        
+    # 绘制Kp图
+    fig = plt.figure(2, figsize=(15, 10))
+    ax1 = fig.add_subplot(211)
+    x = range(0, 500, 100)
+    # plt.xticks(x, ('0','5','10'))
+    plt.ylim(0, 25)
+    plt.xlim(-50, 550)
+    ax1.plot(kp1_array, linewidth=2, label='1st joint')
+    ax1.set_ylabel('angle(rad)',font)
+    plt.tick_params(labelsize=40)
+    labels = ax1.get_xticklabels() + ax1.get_yticklabels()
+    [label.set_fontname('Times New Roman') for label in labels]
+    plt.legend(loc='lower right', prop=font_1, labelspacing=0.1, handletextpad=0.1, borderpad=0.2, handlelength=1.0)
+
+    ax2 = fig.add_subplot(212)
+    x = range(0, 500, 100)
+    # plt.xticks(x, ('0','5','10'))
+    plt.ylim(35, 65)
+    plt.xlim(-50, 550)
+    ax2.plot(kp2_array, linewidth=2, label='2nd joint', color='orange')
+    ax2.set_xlabel('time(s)',font)
+    plt.tick_params(labelsize=40)
+    labels = ax2.get_xticklabels() + ax2.get_yticklabels()
+    [label.set_fontname('Times New Roman') for label in labels]
+    plt.legend(loc='lower right', prop=font_1, labelspacing=0.1, handletextpad=0.1, borderpad=0.2, handlelength=1.0)
+    # plt.savefig('./Figure2_angle.pdf')
+    # plt.savefig('./Figure2_angle.png')
+    plt.show()
+
+    # 绘制效率图
+    fig = plt.figure(6, figsize=(15, 10))
+    ax = fig.add_subplot(111)
+    x = range(0, 3500, 500)
+    plt.xticks(x, ('0','5','10','15','20','25','30'))
+    plt.ylim(-3, 60)
+    plt.xlim(-100, 3100)
+    ax.plot(total_eta_t, linewidth=2, label='Propulsion Efficiency')
+    ax.set_xlabel('time(s)',font)
+    ax.set_ylabel('%',font)
+    plt.tick_params(labelsize=40)
+    labels = ax.get_xticklabels() + ax.get_yticklabels()
+    [label.set_fontname('Times New Roman') for label in labels]
+    plt.legend(loc='lower right', prop=font_1, labelspacing=0.1, handletextpad=0.1, borderpad=0.2, handlelength=1.0)
+    # plt.savefig('./Figure6_eta.pdf')
+    # plt.savefig('./Figure6_eta.png')
+    plt.show()
+
+    # 绘制关节角度图
+    # 创建一个 Figure 和单个 Axes
+    fig, ax = plt.subplots(figsize=(15, 10))
+
+    # 设置 x 轴刻度
+    x = range(0, 500, 100)
+    ax.set_xticks(x)
+    # ax.set_xticklabels(('0', '5', '10', '15', '20', '25', '30'))
+
+    # 限定坐标轴范围
+    ax.set_ylim(-0.6, 0.6)
+    ax.set_xlim(-50, 550)
+
+    # 绘图
+    ax.plot(env.theta_10_t, linewidth=2, label='1st joint')
+    ax.plot(env.theta_21_t, linewidth=2, label='2nd joint', color='orange')
+
+    # 设置标签字体
+    ax.set_ylabel('angle(rad)', fontdict=font)
+
+    # 调整刻度字体大小和字体
+    ax.tick_params(labelsize=40)
+    for label in ax.get_xticklabels() + ax.get_yticklabels():
+        label.set_fontname('Times New Roman')
+
+    # 添加图例
+    ax.legend(loc='lower right',
+            prop=font_1,
+            labelspacing=0.1,
+            handletextpad=0.1,
+            borderpad=0.2,
+            handlelength=1.0)
+
+    plt.show()
     
 
 if ON_TRAIN:
