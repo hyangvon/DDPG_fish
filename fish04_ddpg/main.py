@@ -29,14 +29,14 @@ font_1 = {
 MAX_EPISODES = 100 #原来100
 MAX_EP_STEPS = 100
 EVAL_EPISODE = 10000
-KP_1 = 20
+KP_1 = 18
 KP_2 = 50
 
-ON_TRAIN = True
-# ON_TRAIN = False
+# ON_TRAIN = True
+ON_TRAIN = False
 
-ON_DDPG = True
-# ON_DDPG = False
+# ON_DDPG = True
+ON_DDPG = False
 
 env = FishEnv()     # set env
 s_dim = env.state_dim
@@ -51,25 +51,31 @@ counter = []
 ####################    ####################
 def train():
     # start training
+    s = env.reset()
     for i in range(MAX_EPISODES):
-        s = env.reset()
+        # s = env.reset()
         ep_r = 0
         for j in range(MAX_EP_STEPS):
             env.render()
 
             a = rl.choose_action(s)
 
-            s_, r, done, M1, M2 = env.step(a)
+            s_, r, w, done, M1, M2 = env.step(a)
 
             rl.store_transition(s, a, r, s_)
             # print(rl.gotq(s, a))
-            ep_r = r
             if rl.memory_full:
                 # start to learn once has fulfilled the memory
                 rl.learn()
             s = s_
+            
+            ep_r = r
+            ep_w = w
+
             if done or j == MAX_EP_STEPS-1:
-                print('Ep: %i | %s | ep_r: %.3f | steps: %i' % (i, '---' if not done else 'done', ep_r, j))
+                # print('Ep: %i | %s | ep_r: %.3f | steps: %i' % (i, '---' if not done else 'done', ep_r, j))
+                print('Ep: %i | %s | ep_r: %.3f | ep_w: %.3f | steps: %i' % (i, '---' if not done else 'done', ep_r, ep_w, j))
+                # print('Ep: %i | %s | ep_r: %.3f | steps: %i' % (i, '---' if not done else 'done', ep_w, j))
                 # my_file = open('data.txt','a')
                 # text = 'Ep: %i | %s | ep_r: %.1f | steps: %i\n' % (i, '---' if not done else 'done', ep_r, j)
                 # my_file.write(text)
@@ -86,13 +92,19 @@ def train():
                 # my_file.write(text)
                 # my_file.close()
 
-
                 counter.append(i)
                 if ep_r > 100 or ep_r < 0:
                     eta.append(0)
                 else:
-                    eta.append(ep_r)
+                    eta.append(100*ep_r)
                 break
+
+                # counter.append(i)
+                # if ep_w > 100 or ep_w < 0:
+                #     eta.append(0)
+                # else:
+                #     eta.append(100*ep_w)
+                # break
 
 
     ####################  绘制图像  ####################
@@ -120,21 +132,41 @@ def train():
     # plt.xlabel('episode')
 
 
-    fig = plt.figure(8, figsize=(15, 10))
-    ax = fig.add_subplot(111)
-    # ax.set_xticks(['0', '5', '10', '15', '20', '25', '30'])
+    # fig = plt.figure(8, figsize=(15, 10))
+    # ax = fig.add_subplot(111)
+    # # ax.set_xticks(['0', '5', '10', '15', '20', '25', '30'])
+    # # plt.ylim(-3, 60)
+    # # plt.xlim(-100, 3100)
     # plt.ylim(-3, 60)
-    # plt.xlim(-100, 3100)
+    # plt.xlim(-1, 101)
+    # ax.plot(eta, linewidth=2, label='Propulsion Efficiency')
+    # plt.subplots_adjust(left=0.12, right=0.9, top=0.9, bottom=0.13)
+    # ax.set_xlabel('Episode', font)
+    # ax.set_ylabel('efficiency (%)', font)
+    # plt.tick_params(labelsize=40)
+    # labels = ax.get_xticklabels() + ax.get_yticklabels()
+    # [label.set_fontname('Times New Roman') for label in labels]
+    # plt.legend(loc='lower right', prop=font_1, labelspacing=0.1, handletextpad=0.1, borderpad=0.2, handlelength=1.0)
+    # # plt.savefig('./Fig01_DDPG_eta.pdf')
+    # # plt.savefig('./Fig01_DDPG_eta.png')
+
+    # 绘制效率图
+    fig = plt.figure(6, figsize=(15, 10))
+    ax = fig.add_subplot(111)
+    # x = range(0, 10000, 500)
+    # plt.xticks(x, ('0','5','10','15','20','25','30'))
+    plt.ylim(-3, 55)
+    plt.xlim(-10, 110)
     ax.plot(eta, linewidth=2, label='Propulsion Efficiency')
-    plt.subplots_adjust(left=0.12, right=0.9, top=0.9, bottom=0.13)
-    ax.set_xlabel('Episode', font)
-    ax.set_ylabel('efficiency (%)', font)
+    ax.set_xlabel('time(s)',font)
+    ax.set_ylabel('%',font)
     plt.tick_params(labelsize=40)
     labels = ax.get_xticklabels() + ax.get_yticklabels()
     [label.set_fontname('Times New Roman') for label in labels]
     plt.legend(loc='lower right', prop=font_1, labelspacing=0.1, handletextpad=0.1, borderpad=0.2, handlelength=1.0)
-    # plt.savefig('./Fig01_DDPG_eta.pdf')
-    # plt.savefig('./Fig01_DDPG_eta.png')
+    # plt.savefig('./Figure6_eta.pdf')
+    # plt.savefig('./Figure6_eta.png')
+    plt.show()
 
 
     # plt.figure(4)
@@ -162,23 +194,164 @@ def eval():
     s = env.reset()
     ep_r = 0
     cnt_eval = 0
-    for _ in range(EVAL_EPISODE):
-        env.render()
-        cnt_eval += 1
-        a = rl.choose_action1(s) if ON_DDPG else [KP_1, KP_2]
+
+    ## EVAL_EPISODE
+    # for _ in range(EVAL_EPISODE):
+    #     env.render()
+    #     cnt_eval += 1
+    #     a = rl.choose_action1(s) if ON_DDPG else [KP_1, KP_2]
         
-        kp1_array.append(a[0])
-        kp2_array.append(a[1])
+    #     kp1_array.append(a[0])
+    #     kp2_array.append(a[1])
 
-        s, r, done, m1, m2 = env.step(a)
-        ep_r=r
+    #     s, r, w, done, m1, m2 = env.step(a)
+    #     ep_r = r
+    #     ep_w = w
 
-        total_eta_t.append(100*ep_r)
+    #     # total_eta_t.append(100*ep_r)
+    #     total_eta_t.append(100*ep_w)
 
-        # if done:
-        #     break
-        print(f'[EVAL {cnt_eval/EVAL_EPISODE*100:.2f}%] eta: {ep_r:.4f}')
+    #     # if done:
+    #     #     break
+    #     # print(f'[EVAL {cnt_eval/EVAL_EPISODE*100:.2f}%] eta: {ep_r:.4f}')
+    #     print(f'[EVAL {cnt_eval/EVAL_EPISODE*100:.2f}%] eta(total): {ep_w:.4f}')
         
+    # 绘制Kp图
+    # fig = plt.figure(2, figsize=(15, 10))
+    # ax1 = fig.add_subplot(211)
+    # # x = range(0, 500, 100)
+    # # plt.xticks(x, ('0','5','10'))
+    # plt.ylim(0, 25)
+    # plt.xlim(-100, 10100)
+    # ax1.plot(kp1_array, linewidth=2, label='1st joint')
+    # ax1.set_ylabel('angle(rad)',font)
+    # plt.tick_params(labelsize=40)
+    # labels = ax1.get_xticklabels() + ax1.get_yticklabels()
+    # [label.set_fontname('Times New Roman') for label in labels]
+    # plt.legend(loc='lower right', prop=font_1, labelspacing=0.1, handletextpad=0.1, borderpad=0.2, handlelength=1.0)
+
+    # ax2 = fig.add_subplot(212)
+    # # x = range(0, 500, 100)
+    # # plt.xticks(x, ('0','5','10'))
+    # plt.ylim(35, 65)
+    # plt.xlim(-100, 10100)
+    # ax2.plot(kp2_array, linewidth=2, label='2nd joint', color='orange')
+    # ax2.set_xlabel('time(s)',font)
+    # plt.tick_params(labelsize=40)
+    # labels = ax2.get_xticklabels() + ax2.get_yticklabels()
+    # [label.set_fontname('Times New Roman') for label in labels]
+    # plt.legend(loc='lower right', prop=font_1, labelspacing=0.1, handletextpad=0.1, borderpad=0.2, handlelength=1.0)
+    # # plt.savefig('./Figure2_angle.pdf')
+    # # plt.savefig('./Figure2_angle.png')
+    # plt.show()
+
+    # 绘制效率图
+    # fig = plt.figure(6, figsize=(15, 10))
+    # ax = fig.add_subplot(111)
+    # # x = range(0, 10000, 500)
+    # # plt.xticks(x, ('0','5','10','15','20','25','30'))
+    # plt.ylim(-3, 50)
+    # plt.xlim(-100, 10100)
+    # ax.plot(total_eta_t, linewidth=2, label='Propulsion Efficiency')
+    # ax.set_xlabel('time(s)',font)
+    # ax.set_ylabel('%',font)
+    # plt.tick_params(labelsize=40)
+    # labels = ax.get_xticklabels() + ax.get_yticklabels()
+    # [label.set_fontname('Times New Roman') for label in labels]
+    # plt.legend(loc='lower right', prop=font_1, labelspacing=0.1, handletextpad=0.1, borderpad=0.2, handlelength=1.0)
+    # # plt.savefig('./Figure6_eta.pdf')
+    # # plt.savefig('./Figure6_eta.png')
+    # plt.show()
+
+    # 绘制关节角度图
+    # 创建一个 Figure 和单个 Axes
+    # fig, ax = plt.subplots(figsize=(15, 10))
+
+    # # 设置 x 轴刻度
+    # x = range(0, 500, 100)
+    # ax.set_xticks(x)
+    # # ax.set_xticklabels(('0', '5', '10', '15', '20', '25', '30'))
+
+    # # 限定坐标轴范围
+    # ax.set_ylim(-0.6, 0.6)
+    # ax.set_xlim(-50, 550)
+
+    # # 绘图
+    # ax.plot(env.theta_10_t, linewidth=2, label='1st joint')
+    # ax.plot(env.theta_21_t, linewidth=2, label='2nd joint', color='orange')
+
+    # # 设置标签字体
+    # ax.set_ylabel('angle(rad)', fontdict=font)
+
+    # # 调整刻度字体大小和字体
+    # ax.tick_params(labelsize=40)
+    # for label in ax.get_xticklabels() + ax.get_yticklabels():
+    #     label.set_fontname('Times New Roman')
+
+    # # 添加图例
+    # ax.legend(loc='lower right',
+    #         prop=font_1,
+    #         labelspacing=0.1,
+    #         handletextpad=0.1,
+    #         borderpad=0.2,
+    #         handlelength=1.0)
+
+    # plt.show()
+
+    # MAX_EPISODES and MAX_EP_STEPS
+    for i in range(MAX_EPISODES):
+        # s = env.reset()
+        ep_r = 0
+        for j in range(MAX_EP_STEPS):
+            env.render()
+            cnt_eval += 1
+
+            a = rl.choose_action1(s) if ON_DDPG else [KP_1, KP_2]
+
+            kp1_array.append(a[0])
+            kp2_array.append(a[1])
+
+            s_, r, w, done, M1, M2 = env.step(a)
+            
+            ep_r = r
+            ep_w = w
+
+            if done or j == MAX_EP_STEPS-1:
+                print('Ep: %i | %s | ep_r: %.3f | ep_w: %.3f | steps: %i' % (i, '---' if not done else 'done', ep_r, ep_w, j))
+                # print('Ep: %i | %s | ep_r: %.3f | steps: %i' % (i, '---' if not done else 'done', ep_w, j))
+
+                # counter.append(i)
+                # if ep_r > 100 or ep_r < 0:
+                #     eta.append(0)
+                # else:
+                #     eta.append(100*ep_r)
+                # break
+
+                counter.append(i)
+                if ep_w > 100 or ep_w < 0:
+                    eta.append(0)
+                else:
+                    eta.append(100*ep_w)
+                break
+
+    # 绘制效率图
+    fig = plt.figure(6, figsize=(15, 10))
+    ax = fig.add_subplot(111)
+    # x = range(0, 10000, 500)
+    # plt.xticks(x, ('0','5','10','15','20','25','30'))
+    plt.ylim(-3, 55)
+    plt.xlim(-10, 110)
+    ax.plot(eta, linewidth=2, label='Propulsion Efficiency')
+    ax.set_xlabel('time(s)',font)
+    ax.set_ylabel('%',font)
+    plt.tick_params(labelsize=40)
+    labels = ax.get_xticklabels() + ax.get_yticklabels()
+    [label.set_fontname('Times New Roman') for label in labels]
+    plt.legend(loc='lower right', prop=font_1, labelspacing=0.1, handletextpad=0.1, borderpad=0.2, handlelength=1.0)
+    # plt.savefig('./Figure6_eta.pdf')
+    # plt.savefig('./Figure6_eta.png')
+    plt.show()
+
     # 绘制Kp图
     fig = plt.figure(2, figsize=(15, 10))
     ax1 = fig.add_subplot(211)
@@ -208,50 +381,25 @@ def eval():
     # plt.savefig('./Figure2_angle.png')
     plt.show()
 
-    # 绘制效率图
-    fig = plt.figure(6, figsize=(15, 10))
-    ax = fig.add_subplot(111)
-    x = range(0, 3500, 500)
-    plt.xticks(x, ('0','5','10','15','20','25','30'))
-    plt.ylim(-3, 60)
-    plt.xlim(-100, 3100)
-    ax.plot(total_eta_t, linewidth=2, label='Propulsion Efficiency')
-    ax.set_xlabel('time(s)',font)
-    ax.set_ylabel('%',font)
-    plt.tick_params(labelsize=40)
-    labels = ax.get_xticklabels() + ax.get_yticklabels()
-    [label.set_fontname('Times New Roman') for label in labels]
-    plt.legend(loc='lower right', prop=font_1, labelspacing=0.1, handletextpad=0.1, borderpad=0.2, handlelength=1.0)
-    # plt.savefig('./Figure6_eta.pdf')
-    # plt.savefig('./Figure6_eta.png')
-    plt.show()
-
     # 绘制关节角度图
-    # 创建一个 Figure 和单个 Axes
     fig, ax = plt.subplots(figsize=(15, 10))
 
-    # 设置 x 轴刻度
     x = range(0, 500, 100)
     ax.set_xticks(x)
     # ax.set_xticklabels(('0', '5', '10', '15', '20', '25', '30'))
 
-    # 限定坐标轴范围
     ax.set_ylim(-0.6, 0.6)
     ax.set_xlim(-50, 550)
 
-    # 绘图
     ax.plot(env.theta_10_t, linewidth=2, label='1st joint')
     ax.plot(env.theta_21_t, linewidth=2, label='2nd joint', color='orange')
 
-    # 设置标签字体
     ax.set_ylabel('angle(rad)', fontdict=font)
 
-    # 调整刻度字体大小和字体
     ax.tick_params(labelsize=40)
     for label in ax.get_xticklabels() + ax.get_yticklabels():
         label.set_fontname('Times New Roman')
 
-    # 添加图例
     ax.legend(loc='lower right',
             prop=font_1,
             labelspacing=0.1,

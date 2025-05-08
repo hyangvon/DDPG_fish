@@ -210,7 +210,6 @@ class FishEnv(object):
         self.fish_info = np.zeros(6, dtype=[('r', np.float32), ])
         self.a = np.zeros(2)
 
-
     ####################  开始运算  ####################
     def step(self, action):
         done = False
@@ -395,6 +394,7 @@ class FishEnv(object):
         r = self.total_eta_per_period      # 效率作为的奖励值
         self.fish_info['r'] = [self.theta_10, self.theta_21, self.theta_10_1o, self.theta_21_1o, self.theta_10_2o, self.theta_21_2o]
         s = self.fish_info['r'] # 运动变量作为状态
+        w = self.total_eta #返回效率
 
         # if self.total_eta_per_period > 0.5:
         #     self.goal += 1
@@ -405,9 +405,9 @@ class FishEnv(object):
         # else:
         #     self.goal = 0
 
-        print(f"cnt: {self.counter:d} | P_useful: {self.F_1x + self.F_2x:.3f} * {self.U:.3f}, W_useful: {self.W_useful:.3f}, P1: {self.P_1:.3f}, P2: {self.P_2:.3f}, P_total: {self.P_1 + self.P_2:.3f}, W_total: {self.W_total:.3f}, eta: {self.total_eta:.3f}")
+        # print(f"cnt: {self.counter:d} | P_useful: {self.F_1x + self.F_2x:.3f} * {self.U:.3f}, W_useful: {self.W_useful:.3f}, P1: {self.P_1:.3f}, P2: {self.P_2:.3f}, P_total: {self.P_1 + self.P_2:.3f}, W_total: {self.W_total:.3f}, eta: {self.total_eta:.3f}")
 
-        return s, r, done, self.M_1, self.M_2
+        return s, r, w, done, self.M_1, self.M_2
 
         ####################  绘制图像  ####################
         # if (self.counter % 5000) == 0:
@@ -591,34 +591,53 @@ class Viewer(pyglet.window.Window):
         self.batch.draw()
 
     def _update_fish(self):
+        # 各段长度
         a1l = a2l = a3l = 100
-        (a2r, a3r) = self.fish_info['r'][0], self.fish_info['r'][1] # radian, angle
-        a1xy = self.center_coord
-        a1xy_ = self.center_coord + [50, 0]
-        a2xy = a1xy_  # a2 start (x0, y0)
-        a2xy_ = np.array([np.cos(a2r), np.sin(a2r)]) * a2l + a2xy   # a2 end and a3 start (x1, y1)
-        a3xy_ = np.array([np.cos(a2r + a3r), np.sin(a2r + a3r)]) * a3l + a2xy_  # a3 end (x2, y2)
 
-        a2tr, a3tr = np.pi / 2 - self.fish_info['r'][0], np.pi / 2 - self.fish_info['r'].sum()
+        # 从 fish_info 数组中取出两个关节的角度（rad）
+        # fish_info = [θ1, θ2, …, sinφ, cosφ]
+        a2r, a3r = self.fish_info['r'][0], self.fish_info['r'][1]
 
-        xy00 = a1xy - [0, self.bar_thc]
-        xy01 = a1xy + [0, self.bar_thc]
-        xy10 = a1xy_ + [0, self.bar_thc]
-        xy11 = a1xy_ - [0, self.bar_thc]
+        # 第一段（鱼身）起点和终点
+        a1xy  = self.center_coord
+        a1xy_ = self.center_coord + np.array([50, 0])
 
-        xy10_ = a2xy + np.array([-np.cos(a2tr), np.sin(a2tr)]) * self.bar_thc
-        xy11_ = a2xy + np.array([np.cos(a2tr), -np.sin(a2tr)]) * self.bar_thc
-        xy20 = a2xy_ + np.array([np.cos(a2tr), -np.sin(a2tr)]) * self.bar_thc
-        xy21 = a2xy_ + np.array([-np.cos(a2tr), np.sin(a2tr)]) * self.bar_thc
+        # 第二段（第一关节）起点和终点
+        a2xy  = a1xy_
+        a2xy_ = a2xy + np.array([np.cos(a2r), np.sin(a2r)]) * a2l
 
-        xy20_ = a2xy_ + np.array([np.cos(a3tr), -np.sin(a3tr)]) * self.bar_thc
-        xy21_ = a2xy_ + np.array([-np.cos(a3tr), np.sin(a3tr)]) * self.bar_thc
-        xy30 = a3xy_ + np.array([-np.cos(a3tr), np.sin(a3tr)]) * self.bar_thc
-        xy31 = a3xy_ + np.array([np.cos(a3tr), -np.sin(a3tr)]) * self.bar_thc
+        # 第三段（第二关节）终点
+        a3xy_ = a2xy_ + np.array([np.cos(a2r + a3r), np.sin(a2r + a3r)]) * a3l
 
-        self.fish1.vertices = np.concatenate((xy00, xy01, xy10, xy11))
-        self.fish2.vertices = np.concatenate((xy10_, xy11_, xy20, xy21))
-        self.fish3.vertices = np.concatenate((xy20_, xy21_, xy30, xy31))
+        # 计算两段旋转条块的法向转换角，用于绘制带厚度的矩形
+        a2tr = np.pi/2 - a2r
+        a3tr = np.pi/2 - (a2r + a3r)
+
+        # 第一段矩形四顶点
+        xy00 = a1xy  - np.array([0, self.bar_thc])
+        xy01 = a1xy  + np.array([0, self.bar_thc])
+        xy10 = a1xy_ + np.array([0, self.bar_thc])
+        xy11 = a1xy_ - np.array([0, self.bar_thc])
+        verts1 = np.concatenate((xy00, xy01, xy10, xy11))
+
+        # 第二段矩形四顶点
+        xy10_ = a2xy  + np.array([-np.cos(a2tr),  np.sin(a2tr)]) * self.bar_thc
+        xy11_ = a2xy  + np.array([ np.cos(a2tr), -np.sin(a2tr)]) * self.bar_thc
+        xy20  = a2xy_ + np.array([ np.cos(a2tr), -np.sin(a2tr)]) * self.bar_thc
+        xy21  = a2xy_ + np.array([-np.cos(a2tr),  np.sin(a2tr)]) * self.bar_thc
+        verts2 = np.concatenate((xy10_, xy11_, xy20, xy21))
+
+        # 第三段矩形四顶点
+        xy20_ = a2xy_ + np.array([ np.cos(a3tr), -np.sin(a3tr)]) * self.bar_thc
+        xy21_ = a2xy_ + np.array([-np.cos(a3tr),  np.sin(a3tr)]) * self.bar_thc
+        xy30  = a3xy_ + np.array([-np.cos(a3tr),  np.sin(a3tr)]) * self.bar_thc
+        xy31  = a3xy_ + np.array([ np.cos(a3tr), -np.sin(a3tr)]) * self.bar_thc
+        verts3 = np.concatenate((xy20_, xy21_, xy30, xy31))
+
+        # 更新 Batch 中对应顶点列表
+        self.fish1.vertices = verts1
+        self.fish2.vertices = verts2
+        self.fish3.vertices = verts3
 
 # if __name__ == '__main__':
 #     env = FishEnv()
